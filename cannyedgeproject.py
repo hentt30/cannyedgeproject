@@ -1,6 +1,7 @@
 from scipy import ndimage
 import numpy as np
 from matplotlib.image import imread
+from PIL import Image
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import convolve
 
@@ -31,7 +32,7 @@ class cannyEdgeDetector:
     def non_max_supression(self,img,D):
         M, N = img.shape
         Z = np.zeros((M,N), dtype = np.int32)
-        angle = D*18-. / np.pi
+        angle = D*180. / np.pi
         angle[angle<0] += 180
 
         
@@ -62,7 +63,7 @@ class cannyEdgeDetector:
                         Z[i,j] = img[i,j]
                     else:
                         Z[i,j] = 0
-                expect IndexError as e:
+                except IndexError as e:
                     pass
         return Z
 
@@ -139,7 +140,7 @@ class cannyEdgeDetector:
 
 
 # Loading and plot the image
-image = imread('foto.jpg')
+image = Image.open('image.png').convert('LA')
 plt.figure()
 plt.imshow(image)
 plt.show()
