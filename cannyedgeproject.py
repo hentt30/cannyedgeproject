@@ -1,16 +1,15 @@
 from scipy import ndimage
 import numpy as np
-from matplotlib.image import imread
-from PIL import Image
 import matplotlib.pyplot as plt
 from scipy.ndimage.filters import convolve
+import cv2
 
 
 class cannyEdgeDetector:
-    def __init__(self, imgs, sigma=1, kernel_size=5, weak_pixel=75, strong_pixel=255, lowthreshold=0.05,
+    def __init__(self, img, sigma=1, kernel_size=5, weak_pixel=75, strong_pixel=255, lowthreshold=0.05,
                  highthreshold=0.15):
-        self.imgs = imgs
-        self.imgs_final = []
+        self.img = img
+        self.img_final = []
         self.img_smoothed = None
         self.gradientMat = None
         self.thetaMat = None
@@ -23,76 +22,71 @@ class cannyEdgeDetector:
         self.lowThreshold = lowthreshold
         self.highThreshold = highthreshold
         return
-    def gaussian_kernel(self,size, sigma =1):
-        size = int(size)//2
-        x, y = np.mgrid[-size:size+1, -size:size+1]
-        normal = 1 / (2.0*np.pi*sigma**2)
-        g = np.exp(-((x**2 + y**2)/(2.0*sigma**2)))*normal
+
+    def gaussian_kernel(self, size, sigma=1):
+        size = int(size) // 2
+        x, y = np.mgrid[-size:size + 1, -size:size + 1]
+        normal = 1 / (2.0 * np.pi * sigma ** 2)
+        g = np.exp(-((x ** 2 + y ** 2) / (2.0 * sigma ** 2))) * normal
         return g
-    def non_max_supression(self,img,D):
+
+    def non_max_supression(self, img, D):
         M, N = img.shape
-        Z = np.zeros((M,N), dtype = np.int32)
-        angle = D*180. / np.pi
-        angle[angle<0] += 180
+        Z = np.zeros((M, N), dtype=np.int32)
+        angle = D * 180. / np.pi
+        angle[angle < 0] += 180
 
-        
-
-        for i in range(1,M-1):
-            for j in range(1,N-1):
+        for i in range(1, M - 1):
+            for j in range(1, N - 1):
                 try:
                     q = 255
                     r = 255
 
-                    #angle 0
-                    if( 0 <= angle[i,j] < 22.5) or (157.5 <= angle[i,j] <= 180):
-                        q = img[i,j+1]
-                        r = img[i,j-1]
-                    #angle 45
-                    elif (22.5 <= angle[i,j] < 67.5):
-                        q = img[i+1, j-1]
-                        r = ing[i-1, j+1]
-                    #angle 90
-                    elif(67.5 <= angle[i,j] < 112.5):
-                        q = img[i+1, j]
-                        r = img[i-1, j]
-                    #angle 135
-                    elif(112.5 <= angle[i,j] < 157.5):
-                        q = img[i-1,j-1]
-                        r = img[i+1,j+1]
-                    if (img[i,j] >= q) and (img[i,j] >= r):
-                        Z[i,j] = img[i,j]
+                    # Angle 0
+                    if (0 <= angle[i, j] < 22.5) or (157.5 <= angle[i, j] <= 180):
+                        q = img[i, j + 1]
+                        r = img[i, j - 1]
+                    # Angle 45
+                    elif 22.5 <= angle[i, j] < 67.5:
+                        q = img[i + 1, j - 1]
+                        r = img[i - 1, j + 1]
+                    # Angle 90
+                    elif 67.5 <= angle[i, j] < 112.5:
+                        q = img[i + 1, j]
+                        r = img[i - 1, j]
+                    # Angle 135
+                    elif 112.5 <= angle[i, j] < 157.5:
+                        q = img[i - 1, j - 1]
+                        r = img[i + 1, j + 1]
+                    if (img[i, j] >= q) and (img[i, j] >= r):
+                        Z[i, j] = img[i, j]
                     else:
-                        Z[i,j] = 0
+                        Z[i, j] = 0
                 except IndexError as e:
                     pass
         return Z
 
+    def hysteresis(self, img):
+        img = img[0]
+        M, N = img.shape
 
-        def hysteresis(self, img):
+        weak = self.weak_pixel
+        strong = self.strong_pixel
 
-            M,N = img.shape
-            weak = self.weak_pixel
-            strong = self.strong_pixel
-
-            for i in range(1, M-1):
-                for j in range(1,N-1):
-                    if(img[i,j] == weak):
-                        try:
-                            if((img[i+1,j-1] == strong) or (img[i+1,j] == strong) or
-                            (img[i+1,j+1] == strong) or (img[i,j-1] == strong) or
-                            (img[i,j+1] == strong) or (img[i-1,j-1] == strong) or
-                            (img[i-1,j] == strong) or (img[i-1,j+1] == strong)):
-                                img[i,j] = strong
-                            else:
-                                img[i,j] = 0
-                        except IndexError as e:
-                            pass
-            return img
-
-
-
-
-
+        for i in range(1, M - 1):
+            for j in range(1, N - 1):
+                if img[i, j] == weak:
+                    try:
+                        if ((img[i + 1, j - 1] == strong) or (img[i + 1, j] == strong) or
+                                (img[i + 1, j + 1] == strong) or (img[i, j - 1] == strong) or
+                                (img[i, j + 1] == strong) or (img[i - 1, j - 1] == strong) or
+                                (img[i - 1, j] == strong) or (img[i - 1, j + 1] == strong)):
+                            img[i, j] = strong
+                        else:
+                            img[i, j] = 0
+                    except IndexError as e:
+                        pass
+        return img
 
     def sobel_filters(self, img):
         Kx = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], np.float32)
@@ -127,29 +121,37 @@ class cannyEdgeDetector:
 
         return res, weak, strong
 
+    def my_normalize(self, img):
+        if len(img.shape) == 3:  # check if img is color
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # RGB to grayscale
+
+        # convert into range of [0,1]
+        min_val = np.min(img.ravel())
+        max_val = np.max(img.ravel())
+        output = (img.astype('float') - min_val) / (max_val - min_val)
+
+        return output
+
     def detect(self):
-        for i, img in enumerate(self.imgs):
-            self.img_smoothed = convolve(img, self.gaussian_kernel(self.kernel_size, self.sigma))
-            self.gradientMat, self.thetaMat = self.sobel_filters(self.img_smoothed)
-            self.nonMaxImg = self.non_max_supression(self.gradientMat, self.thetaMat)
-            self.thresholdImg = self.threshold(self.nonMaxImg)
-            img_final = self.hysteresis(self.thresholdImg)
-            self.imgs_final.append(img_final)
+        self.img = self.my_normalize(self.img)
+        self.img_smoothed = convolve(self.img, self.gaussian_kernel(self.kernel_size, self.sigma))
+        self.gradientMat, self.thetaMat = self.sobel_filters(self.img_smoothed)
+        self.nonMaxImg = self.non_max_supression(self.gradientMat, self.thetaMat)
+        self.thresholdImg = self.threshold(self.nonMaxImg)
+        img_final = self.hysteresis(self.thresholdImg)
+        self.img_final = img_final
 
-        return self.imgs_final
+        return self.img_final
 
 
-# Loading and plot the image
-image = Image.open('image.png').convert('LA')
-plt.figure()
-plt.imshow(image)
-plt.show()
+# Load Image
+image_name = 'rubestiti.jpg'
+img = cv2.imread(image_name)
 
-# Detection
-canny_edge = cannyEdgeDetector(image)
+# Canny Edge Detection
+canny_edge = cannyEdgeDetector(img)
 canny_edge_detection = canny_edge.detect()
 
 # Plot Detection
-plt.figure()
-plt.imshow(canny_edge_detection)
+plt.imshow(canny_edge_detection, cmap='gray')
 plt.show()
